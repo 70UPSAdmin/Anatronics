@@ -1,30 +1,43 @@
-package com.example.guided_selfie_new_new
+package com.example.anatronics
+import com.example.anatronics.OverlayView
+
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.core.app.ActivityCompat
-
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.Preview
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import com.google.mlkit.vision.face.FaceLandmark
 
 class CameraActivity : AppCompatActivity() {
     private val CAMERA_PERMISSION_REQUEST_CODE = 1001
+    private lateinit var previewView: PreviewView
+    private lateinit var overlayView: OverlayView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_camera)
 
+        previewView = findViewById(R.id.previewView)
+        overlayView = findViewById(R.id.overlayView)
+
+        // Request camera permission if not granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
+            ActivityCompat.requestPermissions(
+                this,
                 arrayOf(Manifest.permission.CAMERA),
-                CAMERA_PERMISSION_REQUEST_CODE)
+                CAMERA_PERMISSION_REQUEST_CODE
+            )
         } else {
             startCamera()
         }
@@ -36,40 +49,64 @@ class CameraActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == CAMERA_PERMISSION_REQUEST_CODE &&
             grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            grantResults[0] == PackageManager.PERMISSION_GRANTED
+        ) {
             startCamera()
-        } else {
-            // Permission denied
         }
     }
 
     private fun startCamera() {
-        setContentView(R.layout.activity_camera)
-        val previewView = findViewById<PreviewView>(R.id.previewView)
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
+
+            // Preview
+            val preview = Preview.Builder().build().also {
+                it.setSurfaceProvider(previewView.surfaceProvider)
+            }
+
             val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
+            // ML Kit face detector
             val faceDetectorOptions = FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
                 .build()
             val faceDetector = FaceDetection.getClient(faceDetectorOptions)
 
-            val imageAnalysis = ImageAnalysis.Builder().build().also {
-                it.setAnalyzer(ContextCompat.getMainExecutor(this)) { imageProxy ->
-                    imageProxy.close()
+            // Image analysis
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also { analysis ->
+                    analysis.setAnalyzer(ContextCompat.getMainExecutor(this)) { imageProxy ->
+                        val mediaImage = imageProxy.image
+                        if (mediaImage != null) {
+                            val image = InputImage.fromMediaImage(
+                                mediaImage,
+                                imageProxy.imageInfo.rotationDegrees
+                            )
+                            faceDetector.process(image)
+                                .addOnSuccessListener { faces ->
+                                    overlayView.setFaces(faces)
+                                }
+                                .addOnCompleteListener {
+                                    imageProxy.close()
+                                }
+                        } else {
+                            imageProxy.close()
+                        }
+                    }
                 }
-            }
 
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis)
-            } catch(exc: Exception) {
+            } catch (exc: Exception) {
                 exc.printStackTrace()
             }
-
         }, ContextCompat.getMainExecutor(this))
     }
+
 }

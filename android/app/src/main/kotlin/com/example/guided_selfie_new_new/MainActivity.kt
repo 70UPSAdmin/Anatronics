@@ -1,4 +1,4 @@
-package com.example.guided_selfie_new_new
+package com.example.anatronics
 
 import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity

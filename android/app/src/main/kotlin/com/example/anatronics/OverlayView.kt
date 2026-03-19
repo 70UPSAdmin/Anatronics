@@ -21,13 +21,34 @@ class OverlayView @JvmOverloads constructor(
         strokeWidth = 8f
     }
 
-    fun setFaces(faces: List<Face>) {
+    private var imageWidth = 0
+    private var imageHeight = 0
+
+    fun setFaces(faces: List<Face>, imgWidth: Int, imgHeight: Int) {
         this.faces = faces
+        this.imageWidth = imgWidth
+        this.imageHeight = imgHeight
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+
+        if (imageWidth == 0 || imageHeight == 0) return
+
+        val viewWidth = width.toFloat()
+        val viewHeight = height.toFloat()
+
+        // Scale to fill the view (center crop)
+        val scale = maxOf(viewWidth / imageWidth, viewHeight / imageHeight)
+
+        val scaledWidth = imageWidth * scale
+        val scaledHeight = imageHeight * scale
+
+        // Offsets for center-crop
+        val offsetX = (scaledWidth - viewWidth) / 2f
+        val offsetY = (scaledHeight - viewHeight) / 2f
+
         for (face in faces) {
             val landmarks = listOf(
                 face.getLandmark(FaceLandmark.LEFT_EYE),
@@ -36,9 +57,22 @@ class OverlayView @JvmOverloads constructor(
                 face.getLandmark(FaceLandmark.MOUTH_LEFT),
                 face.getLandmark(FaceLandmark.MOUTH_RIGHT)
             )
+
             for (landmark in landmarks) {
                 landmark?.position?.let { point ->
-                    canvas.drawCircle(point.x, point.y, 8f, paint)
+
+                    // scale coordinates
+                    var x = point.x * scale
+                    var y = point.y * scale
+
+                    // subtract crop offsets
+                    x -= offsetX
+                    y -= offsetY
+
+                    // mirror X for front camera (after offsets)
+                    val mirroredX = viewWidth - x
+
+                    canvas.drawCircle(mirroredX, y, 10f, paint)
                 }
             }
         }

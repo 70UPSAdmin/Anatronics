@@ -80,24 +80,28 @@ class CameraActivity : AppCompatActivity() {
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also { analysis ->
-                    analysis.setAnalyzer(ContextCompat.getMainExecutor(this)) { imageProxy ->
-                        val mediaImage = imageProxy.image
-                        if (mediaImage != null) {
-                            val image = InputImage.fromMediaImage(
-                                mediaImage,
-                                imageProxy.imageInfo.rotationDegrees
-                            )
-                            faceDetector.process(image)
-                                .addOnSuccessListener { faces ->
-                                    overlayView.setFaces(faces)
-                                }
-                                .addOnCompleteListener {
-                                    imageProxy.close()
-                                }
-                        } else {
-                            imageProxy.close()
+                        analysis.setAnalyzer(ContextCompat.getMainExecutor(this)) { imageProxy ->
+                            val mediaImage = imageProxy.image
+                            if (mediaImage != null) {
+                                val image = InputImage.fromMediaImage(
+                                    mediaImage,
+                                    imageProxy.imageInfo.rotationDegrees
+                                )
+
+                                val imageWidth = imageProxy.width
+                                val imageHeight = imageProxy.height
+
+                                faceDetector.process(image)
+                                    .addOnSuccessListener { faces ->
+                                        overlayView.setFaces(faces, imageWidth, imageHeight)
+                                    }
+                                    .addOnCompleteListener {
+                                        imageProxy.close()
+                                    }
+                            } else {
+                                imageProxy.close()
+                            }
                         }
-                    }
                 }
 
             try {

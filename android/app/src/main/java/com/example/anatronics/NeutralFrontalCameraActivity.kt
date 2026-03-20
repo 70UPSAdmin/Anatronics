@@ -1,10 +1,17 @@
 package com.example.anatronics
 
+import android.graphics.BitmapFactory
+import android.util.Log
+import java.io.File
 import android.Manifest
+import android.content.ContentValues
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -16,6 +23,8 @@ import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.google.mlkit.vision.face.FaceLandmark
+import java.text.SimpleDateFormat
+import java.util.*
 
 class NeutralFrontalCameraActivity : AppCompatActivity() {
 
@@ -23,6 +32,7 @@ class NeutralFrontalCameraActivity : AppCompatActivity() {
     private lateinit var captureButton: Button
     private lateinit var guidanceText: TextView
 
+    private var imageCapture: ImageCapture? = null
     private val CAMERA_PERMISSION_REQUEST_CODE = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,7 +58,7 @@ class NeutralFrontalCameraActivity : AppCompatActivity() {
         }
 
         captureButton.setOnClickListener {
-            // TODO: capture the photo here
+            takePhoto()
         }
     }
 
@@ -72,6 +82,10 @@ class NeutralFrontalCameraActivity : AppCompatActivity() {
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
+
+            imageCapture = ImageCapture.Builder()
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                .build()
 
             val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
@@ -101,7 +115,6 @@ class NeutralFrontalCameraActivity : AppCompatActivity() {
 
                                         val yaw = face.headEulerAngleY
                                         val pitch = face.headEulerAngleX
-                                        val roll = face.headEulerAngleZ
 
                                         if (yaw in -15f..15f && pitch in -10f..10f) {
                                             if (isNeutralFace(face)) {
@@ -129,11 +142,48 @@ class NeutralFrontalCameraActivity : AppCompatActivity() {
 
             try {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis)
+                cameraProvider.bindToLifecycle(
+                    this, cameraSelector, preview, imageCapture, imageAnalysis
+                )
             } catch (exc: Exception) {
                 exc.printStackTrace()
             }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun takePhoto() {
+        val imageCapture = imageCapture ?: return
+
+        val photoFile = File(
+            this.filesDir, // App's internal storage
+            "NeutralFace_${System.currentTimeMillis()}.jpg"
+        )
+
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+        imageCapture.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(this),
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onError(exc: ImageCaptureException) {
+                    Toast.makeText(
+                        this@NeutralFrontalCameraActivity,
+                        "Photo capture failed: ${exc.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    Toast.makeText(
+                        this@NeutralFrontalCameraActivity,
+                        "Photo saved inside app storage!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    // Optional: show path in log
+                    Log.d("PhotoCapture", "Saved to: ${photoFile.absolutePath}")
+                }
+            }
+        )
     }
 
     private fun isNeutralFace(face: Face): Boolean {
@@ -143,15 +193,10 @@ class NeutralFrontalCameraActivity : AppCompatActivity() {
 
         if (leftMouth == null || rightMouth == null || bottomMouth == null) return false
 
-        // Calculate the vertical height of the mouth
         val mouthHeight = bottomMouth.y - (leftMouth.y + rightMouth.y) / 2
-        // Calculate the width of the mouth
         val mouthWidth = rightMouth.x - leftMouth.x
-
-        // Simple smile detection: smile usually has mouthHeight / mouthWidth > threshold
         val smileRatio = mouthHeight / mouthWidth
 
-        // Adjust threshold experimentally; lower ratio = more neutral
         return smileRatio < 0.25
     }
 }

@@ -10,7 +10,32 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
-        <!-- Flutter main activity -->
+        <!-- Native MenuActivity (launcher) -->
+        <activity
+            android:name=".MenuActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Native Camera activities -->
+        <activity
+            android:name=".CameraActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+        <activity
+            android:name=".NeutralFrontalCameraActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+        <activity
+            android:name=".SmileyFrontalCameraActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+
+        <!-- Flutter main activity (non-launcher) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -28,18 +53,7 @@
             <meta-data
                 android:name="flutterEmbedding"
                 android:value="2"/>
-
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
         </activity>
-
-        <!-- Native camera activity -->
-        <activity
-            android:name=".CameraActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
     </application>
 </manifest>
